@@ -6,19 +6,15 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"os/exec"
 	"time"
 
 	acceptance "github.com/cloudfoundry/bosh-bootloader/acceptance-tests"
 
 	"github.com/cloudfoundry/bosh-bootloader/acceptance-tests/actors"
-	"github.com/cloudfoundry/bosh-bootloader/testhelpers"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
-
-	"github.com/pivotal-cf-experimental/bosh-test/bosh"
 )
 
 var _ = Describe("concourse deployment test", func() {
@@ -27,8 +23,12 @@ var _ = Describe("concourse deployment test", func() {
 		state         acceptance.State
 		lbURL         string
 		configuration acceptance.Config
-		boshClient    bosh.Client
+		boshCLI       actors.BOSHCLI
 		sshSession    *gexec.Session
+		username      string
+		password      string
+		address       string
+		caCertPath    string
 	)
 
 	BeforeEach(func() {
@@ -36,43 +36,40 @@ var _ = Describe("concourse deployment test", func() {
 		configuration, err = acceptance.LoadConfig()
 		Expect(err).NotTo(HaveOccurred())
 
-		bbl = actors.NewBBL(configuration.StateFileDir, pathToBBL, configuration, "concourse-env")
+		bbl = actors.NewBBL("/var/folders/73/sl68xpyd2dggdz6cs2t48f6w0000gn/T/239084616", pathToBBL, configuration, "concourse-env")
 		state = acceptance.NewState(configuration.StateFileDir)
 
-		session := bbl.Up("--name", bbl.PredefinedEnvID())
-		Eventually(session, 40*time.Minute).Should(gexec.Exit(0))
+		//session := bbl.Up("--name", bbl.PredefinedEnvID())
+		//Eventually(session, 40*time.Minute).Should(gexec.Exit(0))
 
-		certPath, err := testhelpers.WriteContentsToTempFile(testhelpers.BBL_CERT)
-		Expect(err).NotTo(HaveOccurred())
+		//certPath, err := testhelpers.WriteContentsToTempFile(testhelpers.BBL_CERT)
+		//Expect(err).NotTo(HaveOccurred())
 
-		keyPath, err := testhelpers.WriteContentsToTempFile(testhelpers.BBL_KEY)
-		Expect(err).NotTo(HaveOccurred())
+		//keyPath, err := testhelpers.WriteContentsToTempFile(testhelpers.BBL_KEY)
+		//Expect(err).NotTo(HaveOccurred())
 
-		session = bbl.CreateLB("concourse", certPath, keyPath, "")
-		Eventually(session, 10*time.Minute).Should(gexec.Exit(0))
+		//session = bbl.CreateLB("concourse", certPath, keyPath, "")
+		//Eventually(session, 10*time.Minute).Should(gexec.Exit(0))
 
-		session = bbl.UpdateLB(certPath, keyPath, "")
-		Eventually(session, 10*time.Minute).Should(gexec.Exit(0))
+		//lbURL, err = actors.LBURL(configuration, bbl, state)
+		//Expect(err).NotTo(HaveOccurred())
 
-		lbURL, err = actors.LBURL(configuration, bbl, state)
-		Expect(err).NotTo(HaveOccurred())
+		boshCLI = actors.NewBOSHCLI()
 
-		boshClient = bosh.NewClient(bosh.Config{
-			URL:              bbl.DirectorAddress(),
-			Username:         bbl.DirectorUsername(),
-			Password:         bbl.DirectorPassword(),
-			AllowInsecureSSL: true,
-		})
+		username = bbl.DirectorUsername()
+		password = bbl.DirectorPassword()
+		address = bbl.DirectorAddress()
+		caCertPath = bbl.DirectorCACert()
 	})
 
 	AfterEach(func() {
 		if sshSession != nil {
-			boshClient.DeleteDeployment("concourse")
+			//boshCLI.DeleteDeployment(address, caCertPath, username, password, "concourse")
 			sshSession.Interrupt()
 			Eventually(sshSession, "5s").Should(gexec.Exit())
 		}
-		session := bbl.Destroy()
-		Eventually(session, 10*time.Minute).Should(gexec.Exit())
+		//session := bbl.Destroy()
+		//Eventually(session, 10*time.Minute).Should(gexec.Exit())
 	})
 
 	It("is able to deploy concourse and teardown infrastructure", func() {
@@ -81,50 +78,44 @@ var _ = Describe("concourse deployment test", func() {
 		})
 
 		By("uploading releases and stemcells", func() {
-			err := uploadRelease(boshClient, configuration.ConcourseReleasePath)
+			fmt.Println("*** config  ***")
+			fmt.Println(configuration.ConcourseReleasePath)
+			fmt.Println("*** env var ***")
+			fmt.Println(os.Getenv("CONCOURSE_RELEASE_PATH"))
+			fmt.Println("***   fin   ***")
+			err := boshCLI.UploadRelease(address, caCertPath, username, password, configuration.ConcourseReleasePath)
 			Expect(err).NotTo(HaveOccurred())
 
-			err = uploadRelease(boshClient, configuration.GardenReleasePath)
+			err = boshCLI.UploadRelease(address, caCertPath, username, password, configuration.GardenReleasePath)
 			Expect(err).NotTo(HaveOccurred())
 
-			err = uploadStemcell(boshClient, configuration.StemcellPath)
+			err = boshCLI.UploadStemcell(address, caCertPath, username, password, configuration.StemcellPath)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("running bosh deploy and checking all the vms are running", func() {
-			os.Setenv("BOSH_CLIENT", bbl.DirectorUsername())
-			os.Setenv("BOSH_CLIENT_SECRET", bbl.DirectorPassword())
-			os.Setenv("BOSH_ENVIRONMENT", bbl.DirectorAddress())
-			os.Setenv("BOSH_CA_CERT", bbl.DirectorCACert())
-			args := []string{
-				"-d", "concourse",
-				"deploy",
+			err := boshCLI.Deploy(address, caCertPath, username, password, "concourse",
 				fmt.Sprintf("%s/concourse-deployment.yml", configuration.ConcourseDeploymentPath),
-				"-o", fmt.Sprintf("%s/operations/%s.yml", configuration.ConcourseDeploymentPath, configuration.IAAS),
-				"--vars-store", "concourse-vars.yml",
-				"-v", fmt.Sprintf("domain=%s", lbURL),
-				"-n",
-			}
-			cmd := exec.Command("bosh", args...)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			err := cmd.Run()
+				"concourse-vars.yml",
+				[]string{fmt.Sprintf("%s/operations/%s.yml", configuration.ConcourseDeploymentPath, configuration.IAAS)},
+				map[string]string{"domain": lbURL},
+			)
 			Expect(err).NotTo(HaveOccurred())
 
-			Eventually(func() ([]bosh.VM, error) {
-				vms, err := boshClient.DeploymentVMs("concourse")
+			Eventually(func() ([]actors.BOSHVM, error) {
+				vms, err := boshCLI.VMs(address, caCertPath, username, password, "concourse")
 				if err != nil {
-					return []bosh.VM{}, err
+					return []actors.BOSHVM{}, err
 				}
 
-				vmsNoID := []bosh.VM{}
+				vmsNoID := []actors.BOSHVM{}
 				for _, vm := range vms {
 					vm.ID = ""
 					vm.IPs = nil
 					vmsNoID = append(vmsNoID, vm)
 				}
 				return vmsNoID, nil
-			}, "1m", "10s").Should(ConsistOf([]bosh.VM{
+			}, "1m", "10s").Should(ConsistOf([]actors.BOSHVM{
 				{JobName: "worker", Index: 0, State: "running"},
 				{JobName: "worker", Index: 1, State: "running"},
 				{JobName: "db", Index: 0, State: "running"},
@@ -150,7 +141,7 @@ var _ = Describe("concourse deployment test", func() {
 		})
 
 		By("deleting the deployment", func() {
-			err := boshClient.DeleteDeployment("concourse")
+			err := boshCLI.DeleteDeployment(address, caCertPath, username, password, "concourse")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -160,37 +151,3 @@ var _ = Describe("concourse deployment test", func() {
 		})
 	})
 })
-
-func uploadStemcell(boshClient bosh.Client, stemcellPath string) error {
-	stemcell, err := openFile(stemcellPath)
-	if err != nil {
-		return err
-	}
-
-	_, err = boshClient.UploadStemcell(stemcell)
-	return err
-}
-
-func uploadRelease(boshClient bosh.Client, releasePath string) error {
-	release, err := openFile(releasePath)
-	if err != nil {
-		return err
-	}
-
-	_, err = boshClient.UploadRelease(release)
-	return err
-}
-
-func openFile(filePath string) (bosh.SizeReader, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	stat, err := file.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	return bosh.NewSizeReader(file, stat.Size()), nil
-}
