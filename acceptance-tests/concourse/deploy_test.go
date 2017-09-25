@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
+	"strings"
 	"time"
 
 	acceptance "github.com/cloudfoundry/bosh-bootloader/acceptance-tests"
+	"github.com/cloudfoundry/bosh-bootloader/testhelpers"
 
 	"github.com/cloudfoundry/bosh-bootloader/acceptance-tests/actors"
 
@@ -36,23 +37,23 @@ var _ = Describe("concourse deployment test", func() {
 		configuration, err = acceptance.LoadConfig()
 		Expect(err).NotTo(HaveOccurred())
 
-		bbl = actors.NewBBL("/var/folders/73/sl68xpyd2dggdz6cs2t48f6w0000gn/T/239084616", pathToBBL, configuration, "concourse-env")
+		bbl = actors.NewBBL(configuration.StateFileDir, pathToBBL, configuration, "concourse-env")
 		state = acceptance.NewState(configuration.StateFileDir)
 
-		//session := bbl.Up("--name", bbl.PredefinedEnvID())
-		//Eventually(session, 40*time.Minute).Should(gexec.Exit(0))
+		session := bbl.Up("--name", bbl.PredefinedEnvID())
+		Eventually(session, 40*time.Minute).Should(gexec.Exit(0))
 
-		//certPath, err := testhelpers.WriteContentsToTempFile(testhelpers.BBL_CERT)
-		//Expect(err).NotTo(HaveOccurred())
+		certPath, err := testhelpers.WriteContentsToTempFile(testhelpers.BBL_CERT)
+		Expect(err).NotTo(HaveOccurred())
 
-		//keyPath, err := testhelpers.WriteContentsToTempFile(testhelpers.BBL_KEY)
-		//Expect(err).NotTo(HaveOccurred())
+		keyPath, err := testhelpers.WriteContentsToTempFile(testhelpers.BBL_KEY)
+		Expect(err).NotTo(HaveOccurred())
 
-		//session = bbl.CreateLB("concourse", certPath, keyPath, "")
-		//Eventually(session, 10*time.Minute).Should(gexec.Exit(0))
+		session = bbl.CreateLB("concourse", certPath, keyPath, "")
+		Eventually(session, 10*time.Minute).Should(gexec.Exit(0))
 
-		//lbURL, err = actors.LBURL(configuration, bbl, state)
-		//Expect(err).NotTo(HaveOccurred())
+		lbURL, err = actors.LBURL(configuration, bbl, state)
+		Expect(err).NotTo(HaveOccurred())
 
 		boshCLI = actors.NewBOSHCLI()
 
@@ -64,12 +65,12 @@ var _ = Describe("concourse deployment test", func() {
 
 	AfterEach(func() {
 		if sshSession != nil {
-			//boshCLI.DeleteDeployment(address, caCertPath, username, password, "concourse")
+			boshCLI.DeleteDeployment(address, caCertPath, username, password, "concourse")
 			sshSession.Interrupt()
 			Eventually(sshSession, "5s").Should(gexec.Exit())
 		}
-		//session := bbl.Destroy()
-		//Eventually(session, 10*time.Minute).Should(gexec.Exit())
+		session := bbl.Destroy()
+		Eventually(session, 10*time.Minute).Should(gexec.Exit())
 	})
 
 	It("is able to deploy concourse and teardown infrastructure", func() {
@@ -78,11 +79,6 @@ var _ = Describe("concourse deployment test", func() {
 		})
 
 		By("uploading releases and stemcells", func() {
-			fmt.Println("*** config  ***")
-			fmt.Println(configuration.ConcourseReleasePath)
-			fmt.Println("*** env var ***")
-			fmt.Println(os.Getenv("CONCOURSE_RELEASE_PATH"))
-			fmt.Println("***   fin   ***")
 			err := boshCLI.UploadRelease(address, caCertPath, username, password, configuration.ConcourseReleasePath)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -102,25 +98,14 @@ var _ = Describe("concourse deployment test", func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 
-			Eventually(func() ([]actors.BOSHVM, error) {
+			Eventually(func() int {
 				vms, err := boshCLI.VMs(address, caCertPath, username, password, "concourse")
 				if err != nil {
-					return []actors.BOSHVM{}, err
+					return 0
 				}
 
-				vmsNoID := []actors.BOSHVM{}
-				for _, vm := range vms {
-					vm.ID = ""
-					vm.IPs = nil
-					vmsNoID = append(vmsNoID, vm)
-				}
-				return vmsNoID, nil
-			}, "1m", "10s").Should(ConsistOf([]actors.BOSHVM{
-				{JobName: "worker", Index: 0, State: "running"},
-				{JobName: "worker", Index: 1, State: "running"},
-				{JobName: "db", Index: 0, State: "running"},
-				{JobName: "web", Index: 0, State: "running"},
-			}))
+				return strings.Count(vms, "running")
+			}, "1m", "10s").Should(Equal(4))
 		})
 
 		By("testing the deployment", func() {

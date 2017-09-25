@@ -1,18 +1,9 @@
 package actors
 
 import (
-	"encoding/json"
 	"fmt"
 	"os/exec"
 )
-
-type BOSHVM struct {
-	ID      string   `json:"id"`
-	Index   int      `json:"index"`
-	State   string   `json:"job_state"`
-	JobName string   `json:"job_name"`
-	IPs     []string `json:"ips"`
-}
 
 type BOSHCLI struct{}
 
@@ -63,9 +54,6 @@ func (BOSHCLI) DeleteEnv(stateFilePath, manifestPath string) error {
 	return err
 }
 
-// TODO: use cli in test
-// TODO: clean up this file
-
 func (BOSHCLI) Deploy(address, caCertPath, username, password, deployment, manifest, varsStore string, opsFiles []string, vars map[string]string) error {
 	args := []string{
 		"--ca-cert", caCertPath,
@@ -111,7 +99,7 @@ func (BOSHCLI) UploadStemcell(address, caCertPath, username, password, stemcellP
 	).Run()
 }
 
-func (BOSHCLI) VMs(address, caCertPath, username, password, deployment string) ([]BOSHVM, error) {
+func (BOSHCLI) VMs(address, caCertPath, username, password, deployment string) (string, error) {
 	output, err := exec.Command("bosh",
 		"--ca-cert", caCertPath,
 		"--client", username,
@@ -119,17 +107,11 @@ func (BOSHCLI) VMs(address, caCertPath, username, password, deployment string) (
 		"-e", address,
 		"-d", deployment,
 		"vms",
-		"--json",
 	).Output()
 	if err != nil {
-		return []BOSHVM{}, err
+		return "", err
 	}
-	var boshVMs []BOSHVM
-	err = json.Unmarshal(output, &boshVMs)
-	if err != nil {
-		return []BOSHVM{}, err
-	}
-	return boshVMs, nil
+	return string(output), nil
 }
 
 func (BOSHCLI) DeleteDeployment(address, caCertPath, username, password, deployment string) error {
@@ -140,5 +122,6 @@ func (BOSHCLI) DeleteDeployment(address, caCertPath, username, password, deploym
 		"-e", address,
 		"-d", deployment,
 		"delete-deployment",
+		"-n",
 	).Run()
 }
