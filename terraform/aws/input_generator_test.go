@@ -50,6 +50,7 @@ var _ = Describe("InputGenerator", func() {
 					AccessKeyID:     "some-access-key-id",
 					SecretAccessKey: "some-secret-access-key",
 					Region:          "some-region",
+					Zone:            "some-zone",
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -62,7 +63,7 @@ var _ = Describe("InputGenerator", func() {
 				"access_key":             "some-access-key-id",
 				"secret_key":             "some-secret-access-key",
 				"region":                 "some-region",
-				"bosh_availability_zone": "",
+				"bosh_availability_zone": "some-zone",
 				"availability_zones":     `["z1","z2","z3"]`,
 			}))
 		})
@@ -80,6 +81,7 @@ var _ = Describe("InputGenerator", func() {
 					AccessKeyID:     "some-access-key-id",
 					SecretAccessKey: "some-secret-access-key",
 					Region:          "some-region",
+					Zone:            "some-zone",
 				},
 				LB: storage.LB{
 					Type:  "cf",
@@ -102,7 +104,7 @@ var _ = Describe("InputGenerator", func() {
 				"access_key":                  "some-access-key-id",
 				"secret_key":                  "some-secret-access-key",
 				"region":                      "some-region",
-				"bosh_availability_zone":      "",
+				"bosh_availability_zone":      "some-zone",
 				"availability_zones":          `["z1","z2","z3"]`,
 				"ssl_certificate":             "some-cert",
 				"ssl_certificate_chain":       "some-chain",
@@ -127,7 +129,7 @@ var _ = Describe("InputGenerator", func() {
 					"access_key":                  "some-access-key-id",
 					"secret_key":                  "some-secret-access-key",
 					"region":                      "some-region",
-					"bosh_availability_zone":      "",
+					"bosh_availability_zone":      "some-zone",
 					"availability_zones":          `["z1","z2","z3"]`,
 					"ssl_certificate":             "some-cert",
 					"ssl_certificate_chain":       "some-chain",
@@ -149,6 +151,7 @@ var _ = Describe("InputGenerator", func() {
 					AccessKeyID:     "some-access-key-id",
 					SecretAccessKey: "some-secret-access-key",
 					Region:          "some-region",
+					Zone:            "some-zone",
 				},
 				LB: storage.LB{
 					Type:  "concourse",
@@ -171,7 +174,7 @@ var _ = Describe("InputGenerator", func() {
 				"access_key":                  "some-access-key-id",
 				"secret_key":                  "some-secret-access-key",
 				"region":                      "some-region",
-				"bosh_availability_zone":      "",
+				"bosh_availability_zone":      "some-zone",
 				"availability_zones":          `["z1","z2","z3"]`,
 				"ssl_certificate":             "some-cert",
 				"ssl_certificate_chain":       "some-chain",

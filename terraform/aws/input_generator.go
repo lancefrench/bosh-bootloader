@@ -45,7 +45,7 @@ func (i InputGenerator) Generate(state storage.State) (map[string]string, error)
 		"access_key":             state.AWS.AccessKeyID,
 		"secret_key":             state.AWS.SecretAccessKey,
 		"region":                 state.AWS.Region,
-		"bosh_availability_zone": "",
+		"bosh_availability_zone": state.AWS.Zone,
 		"availability_zones":     string(zones),
 	}
 

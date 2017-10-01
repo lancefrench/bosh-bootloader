@@ -49,6 +49,7 @@ var _ = Describe("Store", func() {
 						AccessKeyID:     "some-aws-access-key-id",
 						SecretAccessKey: "some-aws-secret-access-key",
 						Region:          "some-region",
+						Zone:            "some-zone",
 					},
 					Azure: storage.Azure{
 						ClientID:       "client-id",
@@ -127,7 +128,8 @@ var _ = Describe("Store", func() {
 				"iaas": "aws",
 				"noDirector": false,
 				"aws": {
-					"region": "some-region"
+					"region": "some-region",
+					"zone": "some-zone"
 				},
 				"azure": {
 					"clientId": "client-id",
@@ -365,9 +367,10 @@ var _ = Describe("Store", func() {
 					"version": 10,
 					"iaas": "aws",
 					"aws": {
-						"accessKeyId": "some-aws-access-key-id",
-						"secretAccessKey": "some-aws-secret-access-key",
-						"region": "some-aws-region"
+						"accessKeyId": "some-access-key-id",
+						"secretAccessKey": "some-secret-access-key",
+						"region": "some-region",
+						"zone": "some-zone"
 					},
 					"keyPair": {
 						"name": "some-name",
@@ -393,9 +396,10 @@ var _ = Describe("Store", func() {
 					Version: 10,
 					IAAS:    "aws",
 					AWS: storage.AWS{
-						AccessKeyID:     "some-aws-access-key-id",
-						SecretAccessKey: "some-aws-secret-access-key",
-						Region:          "some-aws-region",
+						AccessKeyID:     "some-access-key-id",
+						SecretAccessKey: "some-secret-access-key",
+						Region:          "some-region",
+						Zone:            "some-zone",
 					},
 					KeyPair: storage.KeyPair{
 						Name:       "some-name",
@@ -440,9 +444,10 @@ var _ = Describe("Store", func() {
 					err := ioutil.WriteFile(filepath.Join(tempDir, "state.json"), []byte(`{
 						"version": 2,
 						"aws": {
-							"accessKeyId": "some-aws-access-key-id",
-							"secretAccessKey": "some-aws-secret-access-key",
-							"region": "some-aws-region"
+							"accessKeyId": "some-access-key-id",
+							"secretAccessKey": "some-secret-access-key",
+							"region": "some-region",
+							"zone": "some-zone",
 						}
 					}`), os.ModePerm)
 					Expect(err).NotTo(HaveOccurred())
