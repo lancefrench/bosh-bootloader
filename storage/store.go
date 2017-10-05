@@ -133,6 +133,15 @@ func (s Store) GetCloudConfigDir() (string, error) {
 	return dir, nil
 }
 
+func (s Store) GetBblDir() (string, error) {
+	dir := filepath.Join(s.dir, ".bbl")
+	err := os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
 func stateAndBBLStateExist(dir string) (bool, error) {
 	stateFile := filepath.Join(dir, "state.json")
 	_, err := os.Stat(stateFile)

@@ -503,4 +503,55 @@ var _ = Describe("Store", func() {
 			})
 		})
 	})
+
+	Describe("GetBblDir", func() {
+		var expectedDir string
+
+		BeforeEach(func() {
+			expectedDir = filepath.Join(tempDir, ".bbl")
+		})
+
+		AfterEach(func() {
+			os.RemoveAll(expectedDir)
+		})
+
+		Context("if the .bbl subdirectory exists", func() {
+			BeforeEach(func() {
+				os.MkdirAll(expectedDir, os.ModePerm)
+			})
+
+			It("returns the path to that directory", func() {
+				bblDir, err := store.GetBblDir()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(bblDir).To(Equal(expectedDir))
+			})
+		})
+
+		Context("if the .bbl subdirectory does not already exist", func() {
+			It("creates the subdirectory", func() {
+				bblDir, err := store.GetBblDir()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(bblDir).To(Equal(expectedDir))
+
+				_, err = os.Stat(bblDir)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("failure cases", func() {
+			Context("when the .bbl subdirectory does not exist and cannot be created", func() {
+				BeforeEach(func() {
+					// create a file called .bbl to cause name collision with the directory to be created
+					_, err := os.Create(expectedDir)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns an error", func() {
+					bblDir, err := store.GetBblDir()
+					Expect(err).To(MatchError(ContainSubstring("not a directory")))
+					Expect(bblDir).To(Equal(""))
+				})
+			})
+		})
+	})
 })
