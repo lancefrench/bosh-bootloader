@@ -41,9 +41,6 @@ var _ = Describe("Executor", func() {
 		tempDir, err = ioutil.TempDir("", "")
 		Expect(err).NotTo(HaveOccurred())
 
-		terraform.SetTempDir(func(dir, prefix string) (string, error) {
-			return tempDir, nil
-		})
 		terraform.SetReadFile(func(filename string) ([]byte, error) {
 			return []byte{}, nil
 		})
@@ -71,7 +68,6 @@ var _ = Describe("Executor", func() {
 	})
 
 	AfterEach(func() {
-		terraform.ResetTempDir()
 		terraform.ResetReadFile()
 		terraform.ResetWriteFile()
 	})

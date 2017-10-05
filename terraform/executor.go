@@ -15,7 +15,6 @@ import (
 	"github.com/cloudfoundry/bosh-bootloader/storage"
 )
 
-var tempDir func(dir, prefix string) (string, error) = ioutil.TempDir
 var writeFile func(file string, data []byte, perm os.FileMode) error = ioutil.WriteFile
 var readFile func(filename string) ([]byte, error) = ioutil.ReadFile
 

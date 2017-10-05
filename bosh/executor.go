@@ -12,94 +12,6 @@ import (
 	"github.com/cloudfoundry/bosh-bootloader/helpers"
 )
 
-const gcpBoshDirectorEphemeralIPOps = `
-- type: replace
-  path: /networks/name=default/subnets/0/cloud_properties/ephemeral_external_ip?
-  value: true
-`
-
-const awsBoshDirectorEphemeralIPOps = `
-- type: replace
-  path: /resource_pools/name=vms/cloud_properties/auto_assign_public_ip?
-  value: true
-`
-
-const awsEncryptDiskOps = `---
-- type: replace
-  path: /disk_pools/name=disks/cloud_properties?
-  value:
-    type: gp2
-    encrypted: true
-    kms_key_arn: ((kms_key_arn))
-`
-
-const azureSSHStaticIP = `
-- type: replace
-  path: /cloud_provider/ssh_tunnel/host
-  value: ((external_ip))
-`
-
-const azureJumpboxCpi = `
-- type: replace
-  path: /releases/-
-  value:
-    name: bosh-azure-cpi
-    url: https://bosh.io/d/github.com/cloudfoundry-incubator/bosh-azure-cpi-release?v=29
-    sha1: 630901d22de58597ef8d5a23be9a5b7107d9ecb4
-
-- type: replace
-  path: /resource_pools/name=vms/stemcell?
-  value:
-    url: https://bosh.io/d/stemcells/bosh-azure-hyperv-ubuntu-trusty-go_agent?v=3445.11
-    sha1: c70b6854ce1551fbeecfebabfcd6df5215513cad
-
-- type: replace
-  path: /resource_pools/name=vms/cloud_properties?
-  value:
-    instance_type: Standard_D1_v2
-
-- type: replace
-  path: /networks/name=private/subnets/0/cloud_properties?
-  value:
-    resource_group_name: ((resource_group_name))
-    virtual_network_name: ((vnet_name))
-    subnet_name: ((subnet_name))
-
-- type: replace
-  path: /networks/name=public/subnets?/-
-  value:
-    cloud_properties:
-      resource_group_name: ((resource_group_name))
-
-- type: replace
-  path: /cloud_provider/template?
-  value:
-    name: azure_cpi
-    release: bosh-azure-cpi
-
-- type: replace
-  path: /cloud_provider/ssh_tunnel?
-  value:
-    host: ((external_ip))
-    port: 22
-    user: vcap
-    private_key: ((private_key))
-
-- type: replace
-  path: /cloud_provider/properties/azure?
-  value:
-    environment: AzureCloud
-    subscription_id: ((subscription_id))
-    tenant_id: ((tenant_id))
-    client_id: ((client_id))
-    client_secret: ((client_secret))
-    resource_group_name: ((resource_group_name))
-    storage_account_name: ((storage_account_name))
-    default_security_group: ((default_security_group))
-    ssh_user: vcap
-    ssh_public_key: ((public_key))
-`
-
 type Executor struct {
 	command       command
 	tempDir       func(string, string) (string, error)
@@ -175,7 +87,7 @@ func (e Executor) JumpboxInterpolate(interpolateInput InterpolateInput) (Jumpbox
 	}
 
 	if interpolateInput.IAAS == "azure" {
-		jumpboxSetupFiles["cpi.yml"] = []byte(azureJumpboxCpi)
+		jumpboxSetupFiles["cpi.yml"] = []byte(AzureJumpboxCpi)
 	} else {
 		jumpboxSetupFiles["cpi.yml"] = MustAsset(filepath.Join("vendor/github.com/cppforlife/jumpbox-deployment", interpolateInput.IAAS, "cpi.yml"))
 	}
@@ -230,16 +142,13 @@ func (e Executor) DirectorInterpolate(interpolateInput InterpolateInput) (Interp
 		"bosh.yml":                               MustAsset("vendor/github.com/cloudfoundry/bosh-deployment/bosh.yml"),
 		"cpi.yml":                                MustAsset(filepath.Join("vendor/github.com/cloudfoundry/bosh-deployment", interpolateInput.IAAS, "cpi.yml")),
 		"iam-instance-profile.yml":               MustAsset("vendor/github.com/cloudfoundry/bosh-deployment/aws/iam-instance-profile.yml"),
-		"gcp-bosh-director-ephemeral-ip-ops.yml": []byte(gcpBoshDirectorEphemeralIPOps),
-		"aws-bosh-director-ephemeral-ip-ops.yml": []byte(awsBoshDirectorEphemeralIPOps),
-		"aws-bosh-director-encrypt-disk-ops.yml": []byte(awsEncryptDiskOps),
-		"azure-ssh-static-ip.yml":                []byte(azureSSHStaticIP),
+		"gcp-bosh-director-ephemeral-ip-ops.yml": []byte(GCPBoshDirectorEphemeralIPOps),
+		"aws-bosh-director-ephemeral-ip-ops.yml": []byte(AWSBoshDirectorEphemeralIPOps),
+		"aws-bosh-director-encrypt-disk-ops.yml": []byte(AWSEncryptDiskOps),
+		"azure-ssh-static-ip.yml":                []byte(AzureSSHStaticIP),
 		"jumpbox-user.yml":                       MustAsset("vendor/github.com/cloudfoundry/bosh-deployment/jumpbox-user.yml"),
-		"gcp-external-ip-not-recommended.yml":    MustAsset("vendor/github.com/cloudfoundry/bosh-deployment/external-ip-not-recommended.yml"),
-		"azure-external-ip-not-recommended.yml":  MustAsset("vendor/github.com/cloudfoundry/bosh-deployment/external-ip-not-recommended.yml"),
-		"aws-external-ip-not-recommended.yml":    MustAsset("vendor/github.com/cloudfoundry/bosh-deployment/external-ip-with-registry-not-recommended.yml"),
-		"uaa.yml":     MustAsset("vendor/github.com/cloudfoundry/bosh-deployment/uaa.yml"),
-		"credhub.yml": MustAsset("vendor/github.com/cloudfoundry/bosh-deployment/credhub.yml"),
+		"uaa.yml":                                MustAsset("vendor/github.com/cloudfoundry/bosh-deployment/uaa.yml"),
+		"credhub.yml":                            MustAsset("vendor/github.com/cloudfoundry/bosh-deployment/credhub.yml"),
 	}
 
 	if interpolateInput.Variables != "" {
