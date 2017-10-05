@@ -22,6 +22,8 @@ type Executor struct {
 }
 
 type InterpolateInput struct {
+	DeploymentDir          string
+	VarsDir                string
 	IAAS                   string
 	DirectorDeploymentVars string
 	JumpboxDeploymentVars  string
@@ -41,9 +43,11 @@ type JumpboxInterpolateOutput struct {
 }
 
 type CreateEnvInput struct {
-	Manifest  string
-	Variables string
-	State     map[string]interface{}
+	Deployment string
+	Directory  string
+	Manifest   string
+	Variables  string
+	State      map[string]interface{}
 }
 
 type CreateEnvOutput struct {
@@ -51,9 +55,11 @@ type CreateEnvOutput struct {
 }
 
 type DeleteEnvInput struct {
-	Manifest  string
-	Variables string
-	State     map[string]interface{}
+	Deployment string
+	Directory  string
+	Manifest   string
+	Variables  string
+	State      map[string]interface{}
 }
 
 type command interface {
@@ -115,12 +121,12 @@ func (e Executor) JumpboxInterpolate(interpolateInput InterpolateInput) (Jumpbox
 	buffer := bytes.NewBuffer([]byte{})
 	err = e.command.Run(buffer, tempDir, args)
 	if err != nil {
-		return JumpboxInterpolateOutput{}, fmt.Errorf("bosh interpolate: %s: %s", err, buffer)
+		return JumpboxInterpolateOutput{}, fmt.Errorf("Jumpbox interpolate: %s: %s", err, buffer)
 	}
 
 	varsStore, err := e.readFile(filepath.Join(tempDir, "variables.yml"))
 	if err != nil {
-		return JumpboxInterpolateOutput{}, fmt.Errorf("read file: %s", err)
+		return JumpboxInterpolateOutput{}, fmt.Errorf("Jumpbox read file: %s", err)
 	}
 
 	return JumpboxInterpolateOutput{
@@ -237,14 +243,14 @@ func (e Executor) DirectorInterpolate(interpolateInput InterpolateInput) (Interp
 }
 
 func (e Executor) CreateEnv(createEnvInput CreateEnvInput) (CreateEnvOutput, error) {
-	tempDir, err := e.writePreviousFiles(createEnvInput.State, createEnvInput.Variables, createEnvInput.Manifest)
+	err := e.writePreviousFiles(createEnvInput.State, createEnvInput.Variables, createEnvInput.Manifest, createEnvInput.Directory, createEnvInput.Deployment)
 	if err != nil {
 		return CreateEnvOutput{}, err
 	}
 
-	statePath := filepath.Join(tempDir, "state.json")
-	variablesPath := filepath.Join(tempDir, "variables.yml")
-	manifestPath := filepath.Join(tempDir, "manifest.yml")
+	statePath := filepath.Join(createEnvInput.Directory, fmt.Sprintf("%s-state.json", createEnvInput.Deployment))
+	variablesPath := filepath.Join(createEnvInput.Directory, fmt.Sprintf("%s-variables.yml", createEnvInput.Deployment))
+	manifestPath := filepath.Join(createEnvInput.Directory, fmt.Sprintf("%s-manifest.yml", createEnvInput.Deployment))
 
 	args := []string{
 		"create-env", manifestPath,
@@ -252,7 +258,7 @@ func (e Executor) CreateEnv(createEnvInput CreateEnvInput) (CreateEnvOutput, err
 		"--state", statePath,
 	}
 
-	err = e.command.Run(os.Stdout, tempDir, args)
+	err = e.command.Run(os.Stdout, createEnvInput.Directory, args)
 	if err != nil {
 		state, readErr := e.readBOSHState(statePath)
 		if readErr != nil {
@@ -291,22 +297,22 @@ func (e Executor) readBOSHState(statePath string) (map[string]interface{}, error
 }
 
 func (e Executor) DeleteEnv(deleteEnvInput DeleteEnvInput) error {
-	tempDir, err := e.writePreviousFiles(deleteEnvInput.State, deleteEnvInput.Variables, deleteEnvInput.Manifest)
+	err := e.writePreviousFiles(deleteEnvInput.State, deleteEnvInput.Variables, deleteEnvInput.Manifest, deleteEnvInput.Directory, deleteEnvInput.Deployment)
 	if err != nil {
 		return err
 	}
 
-	statePath := filepath.Join(tempDir, "state.json")
-	variablesPath := filepath.Join(tempDir, "variables.yml")
-	boshManifestPath := filepath.Join(tempDir, "manifest.yml")
+	statePath := filepath.Join(deleteEnvInput.Directory, fmt.Sprintf("%s-state.json", deleteEnvInput.Deployment))
+	variablesPath := filepath.Join(deleteEnvInput.Directory, fmt.Sprintf("%s-variables.yml", deleteEnvInput.Deployment))
+	manifestPath := filepath.Join(deleteEnvInput.Directory, fmt.Sprintf("%s-manifest.yml", deleteEnvInput.Deployment))
 
 	args := []string{
-		"delete-env", boshManifestPath,
+		"delete-env", manifestPath,
 		"--vars-store", variablesPath,
 		"--state", statePath,
 	}
 
-	err = e.command.Run(os.Stdout, tempDir, args)
+	err = e.command.Run(os.Stdout, deleteEnvInput.Directory, args)
 	if err != nil {
 		state, readErr := e.readBOSHState(statePath)
 		if readErr != nil {
@@ -346,38 +352,33 @@ func (e Executor) Version() (string, error) {
 	return version, nil
 }
 
-func (e Executor) writePreviousFiles(state map[string]interface{}, variables, manifest string) (string, error) {
-	tempDir, err := e.tempDir("", "")
-	if err != nil {
-		return "", err
-	}
-
-	statePath := filepath.Join(tempDir, "state.json")
-	variablesPath := filepath.Join(tempDir, "variables.yml")
-	boshManifestPath := filepath.Join(tempDir, "manifest.yml")
+func (e Executor) writePreviousFiles(state map[string]interface{}, variables, manifest, directory, deployment string) error {
+	statePath := filepath.Join(directory, fmt.Sprintf("%s-state.json", deployment))
+	variablesPath := filepath.Join(directory, fmt.Sprintf("%s-variables.yml", deployment))
+	manifestPath := filepath.Join(directory, fmt.Sprintf("%s-manifest.yml", deployment))
 
 	if state != nil {
-		boshStateContents, err := e.marshalJSON(state)
+		stateContents, err := e.marshalJSON(state)
 		if err != nil {
-			return "", err
+			return err
 		}
-		err = e.writeFile(statePath, boshStateContents, os.ModePerm)
+		err = e.writeFile(statePath, stateContents, os.ModePerm)
 		if err != nil {
-			return "", err
+			return err
 		}
 	}
 
-	err = e.writeFile(variablesPath, []byte(variables), os.ModePerm)
+	err := e.writeFile(variablesPath, []byte(variables), os.ModePerm)
 	if err != nil {
 		// not tested
-		return "", err
+		return err
 	}
 
-	err = e.writeFile(boshManifestPath, []byte(manifest), os.ModePerm)
+	err = e.writeFile(manifestPath, []byte(manifest), os.ModePerm)
 	if err != nil {
 		// not tested
-		return "", err
+		return err
 	}
 
-	return tempDir, nil
+	return nil
 }
