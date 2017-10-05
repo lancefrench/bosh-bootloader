@@ -253,33 +253,6 @@ var _ = Describe("Store", func() {
 		})
 	})
 
-	Describe("GCP", func() {
-		Describe("Empty", func() {
-			var gcp storage.GCP
-			Context("when all fields are blank", func() {
-				BeforeEach(func() {
-					gcp = storage.GCP{}
-				})
-
-				It("returns true", func() {
-					empty := gcp.Empty()
-					Expect(empty).To(BeTrue())
-				})
-			})
-
-			Context("when at least one field is present", func() {
-				BeforeEach(func() {
-					gcp = storage.GCP{ServiceAccountKey: "some-account-key"}
-				})
-
-				It("returns false", func() {
-					empty := gcp.Empty()
-					Expect(empty).To(BeFalse())
-				})
-			})
-		})
-	})
-
 	Describe("GetState", func() {
 		var logger *fakes.Logger
 
@@ -541,7 +514,6 @@ var _ = Describe("Store", func() {
 		Context("failure cases", func() {
 			Context("when the .bbl subdirectory does not exist and cannot be created", func() {
 				BeforeEach(func() {
-					// create a file called .bbl to cause name collision with the directory to be created
 					_, err := os.Create(expectedDir)
 					Expect(err).NotTo(HaveOccurred())
 				})
@@ -550,6 +522,106 @@ var _ = Describe("Store", func() {
 					bblDir, err := store.GetBblDir()
 					Expect(err).To(MatchError(ContainSubstring("not a directory")))
 					Expect(bblDir).To(Equal(""))
+				})
+			})
+		})
+	})
+
+	Describe("GetTerraformDir", func() {
+		var expectedDir string
+
+		BeforeEach(func() {
+			expectedDir = filepath.Join(tempDir, "terraform")
+		})
+
+		AfterEach(func() {
+			os.RemoveAll(expectedDir)
+		})
+
+		Context("if the terraform subdirectory exists", func() {
+			BeforeEach(func() {
+				os.MkdirAll(expectedDir, os.ModePerm)
+			})
+
+			It("returns the path to that directory", func() {
+				terraformDir, err := store.GetTerraformDir()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(terraformDir).To(Equal(expectedDir))
+			})
+		})
+
+		Context("if the terraform subdirectory does not already exist", func() {
+			It("creates the subdirectory", func() {
+				terraformDir, err := store.GetTerraformDir()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(terraformDir).To(Equal(expectedDir))
+
+				_, err = os.Stat(terraformDir)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("failure cases", func() {
+			Context("when the terraform subdirectory does not exist and cannot be created", func() {
+				BeforeEach(func() {
+					_, err := os.Create(expectedDir)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns an error", func() {
+					terraformDir, err := store.GetTerraformDir()
+					Expect(err).To(MatchError(ContainSubstring("not a directory")))
+					Expect(terraformDir).To(Equal(""))
+				})
+			})
+		})
+	})
+
+	Describe("GetVarsDir", func() {
+		var expectedDir string
+
+		BeforeEach(func() {
+			expectedDir = filepath.Join(tempDir, "vars")
+		})
+
+		AfterEach(func() {
+			os.RemoveAll(expectedDir)
+		})
+
+		Context("if the vars subdirectory exists", func() {
+			BeforeEach(func() {
+				os.MkdirAll(expectedDir, os.ModePerm)
+			})
+
+			It("returns the path to that directory", func() {
+				varsDir, err := store.GetVarsDir()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(varsDir).To(Equal(expectedDir))
+			})
+		})
+
+		Context("if the vars subdirectory does not already exist", func() {
+			It("creates the subdirectory", func() {
+				varsDir, err := store.GetVarsDir()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(varsDir).To(Equal(expectedDir))
+
+				_, err = os.Stat(varsDir)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("failure cases", func() {
+			Context("when the vars subdirectory does not exist and cannot be created", func() {
+				BeforeEach(func() {
+					_, err := os.Create(expectedDir)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns an error", func() {
+					varsDir, err := store.GetVarsDir()
+					Expect(err).To(MatchError(ContainSubstring("not a directory")))
+					Expect(varsDir).To(Equal(""))
 				})
 			})
 		})

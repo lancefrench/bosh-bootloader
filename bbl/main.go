@@ -65,7 +65,7 @@ func main() {
 	// Terraform
 	terraformOutputBuffer := bytes.NewBuffer([]byte{})
 	terraformCmd := terraform.NewCmd(os.Stderr, terraformOutputBuffer)
-	terraformExecutor := terraform.NewExecutor(terraformCmd, appConfig.Global.Debug)
+	terraformExecutor := terraform.NewExecutor(terraformCmd, stateStore, appConfig.Global.Debug)
 
 	var (
 		networkClient            helpers.NetworkClient

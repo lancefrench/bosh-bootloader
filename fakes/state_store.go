@@ -35,6 +35,22 @@ type StateStore struct {
 			Error     error
 		}
 	}
+
+	GetTerraformDirCall struct {
+		CallCount int
+		Returns   struct {
+			Directory string
+			Error     error
+		}
+	}
+
+	GetVarsDirCall struct {
+		CallCount int
+		Returns   struct {
+			Directory string
+			Error     error
+		}
+	}
 }
 
 type SetCallReceive struct {
@@ -67,4 +83,16 @@ func (s *StateStore) GetBblDir() (string, error) {
 	s.GetBblDirCall.CallCount++
 
 	return s.GetBblDirCall.Returns.Directory, s.GetBblDirCall.Returns.Error
+}
+
+func (s *StateStore) GetTerraformDir() (string, error) {
+	s.GetTerraformDirCall.CallCount++
+
+	return s.GetTerraformDirCall.Returns.Directory, s.GetTerraformDirCall.Returns.Error
+}
+
+func (s *StateStore) GetVarsDir() (string, error) {
+	s.GetVarsDirCall.CallCount++
+
+	return s.GetVarsDirCall.Returns.Directory, s.GetVarsDirCall.Returns.Error
 }

@@ -142,6 +142,24 @@ func (s Store) GetBblDir() (string, error) {
 	return dir, nil
 }
 
+func (s Store) GetTerraformDir() (string, error) {
+	dir := filepath.Join(s.dir, "terraform")
+	err := os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
+func (s Store) GetVarsDir() (string, error) {
+	dir := filepath.Join(s.dir, "vars")
+	err := os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
 func stateAndBBLStateExist(dir string) (bool, error) {
 	stateFile := filepath.Join(dir, "state.json")
 	_, err := os.Stat(stateFile)

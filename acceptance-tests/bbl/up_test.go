@@ -35,22 +35,14 @@ var _ = FDescribe("up", func() {
 
 		bbl = actors.NewBBL(stateDir, pathToBBL, configuration, "up-env")
 		boshcli = actors.NewBOSHCLI()
-
 		boshDirectorChecker = actors.NewBOSHDirectorChecker(configuration)
 	})
 
 	AfterEach(func() {
-		fmt.Println("********************************************************************************")
-		fmt.Println("Entering AfterEach...")
 		sshSession.Interrupt()
-		fmt.Println("Called sshSession.Interrupt...")
 		Eventually(sshSession, "5s").Should(gexec.Exit())
-		fmt.Println("sshSession exited...")
 		session := bbl.Down()
-		fmt.Println("Called bbl.Down()...")
 		Eventually(session, 10*time.Minute).Should(gexec.Exit())
-		fmt.Println("Exiting AfterEach...")
-		fmt.Println("********************************************************************************")
 	})
 
 	It("bbl's up a new bosh director and jumpbox", func() {
@@ -68,6 +60,9 @@ var _ = FDescribe("up", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			_, err = os.Stat(filepath.Join(stateDir, ".bbl", "previous-user-ops-file.yml"))
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = os.Stat(filepath.Join(stateDir, "terraform", "template.tf"))
 			Expect(err).NotTo(HaveOccurred())
 
 			_, err = os.Stat(filepath.Join(stateDir, "bosh-deployment", "aws-bosh-director-encrypt-disk-ops.yml"))
@@ -117,9 +112,6 @@ var _ = FDescribe("up", func() {
 			_, err = os.Stat(filepath.Join(stateDir, "vars", "user-ops-file.yml"))
 			Expect(err).NotTo(HaveOccurred())
 			_, err = os.Stat(filepath.Join(stateDir, "vars", "terraform.tfstate"))
-			Expect(err).NotTo(HaveOccurred())
-
-			_, err = os.Stat(filepath.Join(stateDir, "terraform", "template.tf"))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
