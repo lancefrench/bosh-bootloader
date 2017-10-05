@@ -19,6 +19,14 @@ type StateStore struct {
 			Error error
 		}
 	}
+
+	GetCloudConfigDirCall struct {
+		CallCount int
+		Returns   struct {
+			Directory string
+			Error     error
+		}
+	}
 }
 
 type SetCallReceive struct {
@@ -39,4 +47,10 @@ func (s *StateStore) Set(state storage.State) error {
 	}
 
 	return s.SetCall.Returns[s.SetCall.CallCount-1].Error
+}
+
+func (s *StateStore) GetCloudConfigDir() (string, error) {
+	s.GetCloudConfigDirCall.CallCount++
+
+	return s.GetCloudConfigDirCall.Returns.Directory, s.GetCloudConfigDirCall.Returns.Error
 }

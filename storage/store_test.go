@@ -439,4 +439,68 @@ var _ = Describe("Store", func() {
 			})
 		})
 	})
+
+	Describe("GetCloudConfigDir", func() {
+		var expectedDir string
+
+		BeforeEach(func() {
+			expectedDir = filepath.Join(tempDir, ".bbl", "cloudconfig")
+		})
+
+		AfterEach(func() {
+			os.RemoveAll(expectedDir)
+		})
+
+		Context("if the .bbl subdirectory exists", func() {
+			BeforeEach(func() {
+				os.MkdirAll(filepath.Join(tempDir, ".bbl"), os.ModePerm)
+			})
+
+			It("returns the path to that directory", func() {
+				cloudConfigDir, err := store.GetCloudConfigDir()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cloudConfigDir).To(Equal(expectedDir))
+			})
+		})
+
+		Context("if the .bbl/cloudconfig subdirectory exists", func() {
+			BeforeEach(func() {
+				os.MkdirAll(expectedDir, os.ModePerm)
+			})
+
+			It("returns the path to that directory", func() {
+				cloudConfigDir, err := store.GetCloudConfigDir()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cloudConfigDir).To(Equal(expectedDir))
+			})
+		})
+
+		Context("if the .bbl/cloudconfig subdirectory does not already exist", func() {
+			It("creates the subdirectory", func() {
+				cloudConfigDir, err := store.GetCloudConfigDir()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cloudConfigDir).To(Equal(expectedDir))
+
+				_, err = os.Stat(cloudConfigDir)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		Context("failure cases", func() {
+			Context("when the .bbl/cloudconfig subdirectory does not exist and cannot be created", func() {
+				BeforeEach(func() {
+					os.Mkdir(filepath.Join(tempDir, ".bbl"), os.ModePerm)
+					// create a file called .bbl/cloudconfig to cause name collision with the directory to be created
+					_, err := os.Create(expectedDir)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns an error", func() {
+					cloudConfigDir, err := store.GetCloudConfigDir()
+					Expect(err).To(MatchError(ContainSubstring("not a directory")))
+					Expect(cloudConfigDir).To(Equal(""))
+				})
+			})
+		})
+	})
 })
