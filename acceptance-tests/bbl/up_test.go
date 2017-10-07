@@ -39,8 +39,10 @@ var _ = FDescribe("up", func() {
 	})
 
 	AfterEach(func() {
-		sshSession.Interrupt()
-		Eventually(sshSession, "5s").Should(gexec.Exit())
+		if sshSession != nil {
+			sshSession.Interrupt()
+			Eventually(sshSession, "5s").Should(gexec.Exit())
+		}
 		session := bbl.Down()
 		Eventually(session, 10*time.Minute).Should(gexec.Exit())
 	})
@@ -51,62 +53,42 @@ var _ = FDescribe("up", func() {
 		Eventually(session, 40*time.Minute).Should(gexec.Exit(0))
 
 		By("verifying that artifacts are created in state dir", func() {
-			_, err := os.Stat(filepath.Join(stateDir, "bbl-state.json"))
-			Expect(err).NotTo(HaveOccurred())
+			checkExists := func(dir string, filenames []string) {
+				for _, f := range filenames {
+					_, err := os.Stat(filepath.Join(dir, f))
+					Expect(err).NotTo(HaveOccurred())
+				}
+			}
 
-			_, err = os.Stat(filepath.Join(stateDir, ".bbl", "cloudconfig", "cloud-config.yml"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, ".bbl", "cloudconfig", "ops.yml"))
-			Expect(err).NotTo(HaveOccurred())
-
-			_, err = os.Stat(filepath.Join(stateDir, ".bbl", "previous-user-ops-file.yml"))
-			Expect(err).NotTo(HaveOccurred())
-
-			_, err = os.Stat(filepath.Join(stateDir, "terraform", "template.tf"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, "vars", "terraform.tfstate"))
-			Expect(err).NotTo(HaveOccurred())
-
-			_, err = os.Stat(filepath.Join(stateDir, "bosh-deployment", "aws-bosh-director-encrypt-disk-ops.yml"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, "bosh-deployment", "aws-bosh-director-ephemeral-ip-ops.yml"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, "bosh-deployment", "azure-ssh-static-ip.yml"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, "bosh-deployment", "bosh.yml"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, "bosh-deployment", "cpi.yml"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, "bosh-deployment", "credhub.yml"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, "bosh-deployment", "gcp-bosh-director-ephemeral-ip-ops.yml"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, "bosh-deployment", "iam-instance-profile.yml"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, "bosh-deployment", "jumpbox-user.yml"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, "bosh-deployment", "uaa.yml"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, "bosh-deployment", "user-ops-file.yml"))
-			Expect(err).NotTo(HaveOccurred())
-
-			_, err = os.Stat(filepath.Join(stateDir, "jumpbox-deployment", "cpi.yml"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, "jumpbox-deployment", "jumpbox.yml"))
-			Expect(err).NotTo(HaveOccurred())
-
-			_, err = os.Stat(filepath.Join(stateDir, "vars", "terraform-credentials.json"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, "vars", "bosh-deployment-state.json"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, "vars", "bosh-deployment-variables.yml"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, "vars", "jumpbox-deployment-state.json"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, "vars", "jumpbox-deployment-variables.yml"))
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(filepath.Join(stateDir, "vars", "user-ops-file.yml"))
-			Expect(err).NotTo(HaveOccurred())
+			checkExists(stateDir, []string{"bbl-state.json"})
+			checkExists(filepath.Join(stateDir, ".bbl", "cloudconfig"), []string{
+				"cloud-config.yml",
+				"ops.yml",
+			})
+			checkExists(filepath.Join(stateDir, ".bbl"), []string{"previous-user-ops-file.yml"})
+			checkExists(filepath.Join(stateDir, "bosh-deployment"), []string{
+				"bosh.yml",
+				"cpi.yml",
+				"credhub.yml",
+				"jumpbox-user.yml",
+				"uaa.yml",
+				"user-ops-file.yml",
+				// and some iaas-specific files tested in unit tests...
+			})
+			checkExists(filepath.Join(stateDir, "jumpbox-deployment"), []string{
+				"cpi.yml",
+				"jumpbox.yml",
+			})
+			checkExists(filepath.Join(stateDir, "terraform"), []string{"template.tf"})
+			checkExists(filepath.Join(stateDir, "vars"), []string{
+				"terraform-credentials.json",
+				"bosh-deployment-state.json",
+				"bosh-deployment-variables.yml",
+				"jumpbox-deployment-state.json",
+				"jumpbox-deployment-variables.yml",
+				"user-ops-file.yml",
+				"terraform.tfstate",
+			})
 		})
 
 		By("creating an ssh tunnel to the director in print-env", func() {

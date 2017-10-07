@@ -40,6 +40,10 @@ var _ = Describe("Executor", func() {
 			varsDir, err = ioutil.TempDir("", "")
 			Expect(err).NotTo(HaveOccurred())
 
+			tempDirFunc = func(string, string) (string, error) {
+				return "", nil
+			}
+
 			interpolateInput = bosh.InterpolateInput{
 				DeploymentDir: deploymentDir,
 				VarsDir:       varsDir,
@@ -51,10 +55,6 @@ var _ = Describe("Executor", func() {
 			}
 
 			executor = bosh.NewExecutor(cmd, tempDirFunc, ioutil.ReadFile, json.Unmarshal, json.Marshal, ioutil.WriteFile)
-		})
-
-		AfterEach(func() {
-			tempDirCallCount = 0
 		})
 
 		Context("azure", func() {
@@ -75,7 +75,6 @@ var _ = Describe("Executor", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(cmd.RunCallCount()).To(Equal(1))
-				Expect(tempDirCallCount).To(Equal(1))
 
 				expectedArgs := append([]string{
 					"interpolate", fmt.Sprintf("%s/jumpbox.yml", deploymentDir),
@@ -114,12 +113,11 @@ var _ = Describe("Executor", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(cmd.RunCallCount()).To(Equal(1))
-				Expect(tempDirCallCount).To(Equal(1))
 
 				expectedArgs := append([]string{
 					"interpolate", fmt.Sprintf("%s/jumpbox.yml", deploymentDir),
 					"--var-errs",
-					"--vars-store", fmt.Sprintf("%s/variables.yml", varsDir),
+					"--vars-store", fmt.Sprintf("%s/jumpbox-variables.yml", varsDir),
 					"--vars-file", fmt.Sprintf("%s/jumpbox-deployment-vars.yml", varsDir),
 					"-o", fmt.Sprintf("%s/cpi.yml", deploymentDir),
 				})
@@ -153,12 +151,11 @@ var _ = Describe("Executor", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(cmd.RunCallCount()).To(Equal(1))
-				Expect(tempDirCallCount).To(Equal(1))
 
 				expectedArgs := append([]string{
 					"interpolate", fmt.Sprintf("%s/jumpbox.yml", deploymentDir),
 					"--var-errs",
-					"--vars-store", fmt.Sprintf("%s/variables.yml", varsDir),
+					"--vars-store", fmt.Sprintf("%s/jumpbox-variables.yml", varsDir),
 					"--vars-file", fmt.Sprintf("%s/jumpbox-deployment-vars.yml", varsDir),
 					"-o", fmt.Sprintf("%s/cpi.yml", deploymentDir),
 				})
@@ -180,7 +177,9 @@ var _ = Describe("Executor", func() {
 				It("returns an error", func() {
 					executor = bosh.NewExecutor(cmd, tempDirFunc, ioutil.ReadFile, json.Unmarshal, json.Marshal, ioutil.WriteFile)
 					_, err := executor.JumpboxInterpolate(bosh.InterpolateInput{
-						IAAS: "aws",
+						DeploymentDir: deploymentDir,
+						VarsDir:       varsDir,
+						IAAS:          "aws",
 					})
 					Expect(err).To(MatchError("Jumpbox interpolate: kiwi: "))
 				})
@@ -194,7 +193,9 @@ var _ = Describe("Executor", func() {
 
 					executor = bosh.NewExecutor(cmd, tempDirFunc, readFileFunc, json.Unmarshal, json.Marshal, ioutil.WriteFile)
 					_, err := executor.JumpboxInterpolate(bosh.InterpolateInput{
-						IAAS: "aws",
+						DeploymentDir: deploymentDir,
+						VarsDir:       varsDir,
+						IAAS:          "aws",
 					})
 					Expect(err).To(MatchError("Jumpbox read file: kiwi"))
 				})
@@ -206,9 +207,9 @@ var _ = Describe("Executor", func() {
 		var (
 			cmd *fakes.BOSHCommand
 
-			tempDir          string
-			tempDirFunc      func(string, string) (string, error)
-			tempDirCallCount int
+			deploymentDir string
+			varsDir       string
+			tempDirFunc   func(string, string) (string, error)
 
 			executor bosh.Executor
 
@@ -219,15 +220,19 @@ var _ = Describe("Executor", func() {
 			cmd = &fakes.BOSHCommand{}
 
 			var err error
-			tempDir, err = ioutil.TempDir("", "")
+			deploymentDir, err = ioutil.TempDir("", "")
+			Expect(err).NotTo(HaveOccurred())
+
+			varsDir, err = ioutil.TempDir("", "")
 			Expect(err).NotTo(HaveOccurred())
 
 			tempDirFunc = func(prefix, dir string) (string, error) {
-				tempDirCallCount++
-				return tempDir, nil
+				return "/nope", nil
 			}
 
 			interpolateInput = bosh.InterpolateInput{
+				DeploymentDir:          deploymentDir,
+				VarsDir:                varsDir,
 				DirectorDeploymentVars: "internal_cidr: 10.0.0.0/24",
 				BOSHState: map[string]interface{}{
 					"key": "value",
@@ -237,10 +242,6 @@ var _ = Describe("Executor", func() {
 			}
 
 			executor = bosh.NewExecutor(cmd, tempDirFunc, ioutil.ReadFile, json.Unmarshal, json.Marshal, ioutil.WriteFile)
-		})
-
-		AfterEach(func() {
-			tempDirCallCount = 0
 		})
 
 		Context("azure", func() {
@@ -261,29 +262,28 @@ var _ = Describe("Executor", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(cmd.RunCallCount()).To(Equal(2))
-				Expect(tempDirCallCount).To(Equal(1))
 
 				expectedArgs := append([]string{
-					"interpolate", fmt.Sprintf("%s/bosh.yml", tempDir),
+					"interpolate", fmt.Sprintf("%s/bosh.yml", deploymentDir),
 					"--var-errs",
 					"--var-errs-unused",
-					"--vars-store", fmt.Sprintf("%s/variables.yml", tempDir),
-					"--vars-file", fmt.Sprintf("%s/deployment-vars.yml", tempDir),
-					"-o", fmt.Sprintf("%s/cpi.yml", tempDir),
-					"-o", fmt.Sprintf("%s/jumpbox-user.yml", tempDir),
-					"-o", fmt.Sprintf("%s/uaa.yml", tempDir),
-					"-o", fmt.Sprintf("%s/credhub.yml", tempDir),
+					"--vars-store", fmt.Sprintf("%s/director-variables.yml", varsDir),
+					"--vars-file", fmt.Sprintf("%s/director-deployment-vars.yml", varsDir),
+					"-o", fmt.Sprintf("%s/cpi.yml", deploymentDir),
+					"-o", fmt.Sprintf("%s/jumpbox-user.yml", deploymentDir),
+					"-o", fmt.Sprintf("%s/uaa.yml", deploymentDir),
+					"-o", fmt.Sprintf("%s/credhub.yml", deploymentDir),
 				})
 
 				_, _, args := cmd.RunArgsForCall(0)
 				Expect(args).To(Equal(expectedArgs))
 
 				expectedArgs = append([]string{
-					"interpolate", fmt.Sprintf("%s/bosh.yml", tempDir),
+					"interpolate", fmt.Sprintf("%s/bosh.yml", deploymentDir),
 					"--var-errs",
-					"--vars-store", fmt.Sprintf("%s/variables.yml", tempDir),
-					"--vars-file", fmt.Sprintf("%s/deployment-vars.yml", tempDir),
-					"-o", fmt.Sprintf("%s/user-ops-file.yml", tempDir),
+					"--vars-store", fmt.Sprintf("%s/director-variables.yml", varsDir),
+					"--vars-file", fmt.Sprintf("%s/director-deployment-vars.yml", varsDir),
+					"-o", fmt.Sprintf("%s/user-ops-file.yml", varsDir),
 				})
 
 				_, _, args = cmd.RunArgsForCall(1)
@@ -315,21 +315,20 @@ var _ = Describe("Executor", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(cmd.RunCallCount()).To(Equal(1))
-				Expect(tempDirCallCount).To(Equal(1))
 
 				expectedArgs := append([]string{
-					"interpolate", fmt.Sprintf("%s/bosh.yml", tempDir),
+					"interpolate", fmt.Sprintf("%s/bosh.yml", deploymentDir),
 					"--var-errs",
 					"--var-errs-unused",
-					"--vars-store", fmt.Sprintf("%s/variables.yml", tempDir),
-					"--vars-file", fmt.Sprintf("%s/deployment-vars.yml", tempDir),
-					"-o", fmt.Sprintf("%s/cpi.yml", tempDir),
-					"-o", fmt.Sprintf("%s/jumpbox-user.yml", tempDir),
-					"-o", fmt.Sprintf("%s/uaa.yml", tempDir),
-					"-o", fmt.Sprintf("%s/credhub.yml", tempDir),
-					"-o", fmt.Sprintf("%s/aws-bosh-director-ephemeral-ip-ops.yml", tempDir),
-					"-o", fmt.Sprintf("%s/iam-instance-profile.yml", tempDir),
-					"-o", fmt.Sprintf("%s/aws-bosh-director-encrypt-disk-ops.yml", tempDir),
+					"--vars-store", fmt.Sprintf("%s/director-variables.yml", varsDir),
+					"--vars-file", fmt.Sprintf("%s/director-deployment-vars.yml", varsDir),
+					"-o", fmt.Sprintf("%s/cpi.yml", deploymentDir),
+					"-o", fmt.Sprintf("%s/jumpbox-user.yml", deploymentDir),
+					"-o", fmt.Sprintf("%s/uaa.yml", deploymentDir),
+					"-o", fmt.Sprintf("%s/credhub.yml", deploymentDir),
+					"-o", fmt.Sprintf("%s/aws-bosh-director-ephemeral-ip-ops.yml", deploymentDir),
+					"-o", fmt.Sprintf("%s/iam-instance-profile.yml", deploymentDir),
+					"-o", fmt.Sprintf("%s/aws-bosh-director-encrypt-disk-ops.yml", deploymentDir),
 				})
 
 				_, _, args := cmd.RunArgsForCall(0)
@@ -360,19 +359,18 @@ var _ = Describe("Executor", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(cmd.RunCallCount()).To(Equal(1))
-				Expect(tempDirCallCount).To(Equal(1))
 
 				expectedArgs := append([]string{
-					"interpolate", fmt.Sprintf("%s/bosh.yml", tempDir),
+					"interpolate", fmt.Sprintf("%s/bosh.yml", deploymentDir),
 					"--var-errs",
 					"--var-errs-unused",
-					"--vars-store", fmt.Sprintf("%s/variables.yml", tempDir),
-					"--vars-file", fmt.Sprintf("%s/deployment-vars.yml", tempDir),
-					"-o", fmt.Sprintf("%s/cpi.yml", tempDir),
-					"-o", fmt.Sprintf("%s/jumpbox-user.yml", tempDir),
-					"-o", fmt.Sprintf("%s/uaa.yml", tempDir),
-					"-o", fmt.Sprintf("%s/credhub.yml", tempDir),
-					"-o", fmt.Sprintf("%s/gcp-bosh-director-ephemeral-ip-ops.yml", tempDir),
+					"--vars-store", fmt.Sprintf("%s/director-variables.yml", varsDir),
+					"--vars-file", fmt.Sprintf("%s/director-deployment-vars.yml", varsDir),
+					"-o", fmt.Sprintf("%s/cpi.yml", deploymentDir),
+					"-o", fmt.Sprintf("%s/jumpbox-user.yml", deploymentDir),
+					"-o", fmt.Sprintf("%s/uaa.yml", deploymentDir),
+					"-o", fmt.Sprintf("%s/credhub.yml", deploymentDir),
+					"-o", fmt.Sprintf("%s/gcp-bosh-director-ephemeral-ip-ops.yml", deploymentDir),
 				})
 
 				_, _, args := cmd.RunArgsForCall(0)
@@ -412,9 +410,9 @@ networks
 					writtenManifest := []byte{}
 					cmd.RunStub = func(stdout io.Writer, workingDirectory string, args []string) error {
 						for _, arg := range args {
-							if arg == fmt.Sprintf("%s/user-ops-file.yml", tempDir) {
+							if arg == fmt.Sprintf("%s/user-ops-file.yml", varsDir) {
 								var err error
-								writtenManifest, err = ioutil.ReadFile(fmt.Sprintf("%s/bosh.yml", tempDir))
+								writtenManifest, err = ioutil.ReadFile(fmt.Sprintf("%s/bosh.yml", deploymentDir))
 								if err != nil {
 									return err
 								}
@@ -430,36 +428,35 @@ networks
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(cmd.RunCallCount()).To(Equal(2))
-					Expect(tempDirCallCount).To(Equal(1))
 
 					expectedArgs := append([]string{
-						"interpolate", fmt.Sprintf("%s/bosh.yml", tempDir),
+						"interpolate", fmt.Sprintf("%s/bosh.yml", deploymentDir),
 						"--var-errs",
 						"--var-errs-unused",
-						"--vars-store", fmt.Sprintf("%s/variables.yml", tempDir),
-						"--vars-file", fmt.Sprintf("%s/deployment-vars.yml", tempDir),
-						"-o", fmt.Sprintf("%s/cpi.yml", tempDir),
-						"-o", fmt.Sprintf("%s/jumpbox-user.yml", tempDir),
-						"-o", fmt.Sprintf("%s/uaa.yml", tempDir),
-						"-o", fmt.Sprintf("%s/credhub.yml", tempDir),
-						"-o", fmt.Sprintf("%s/gcp-bosh-director-ephemeral-ip-ops.yml", tempDir),
+						"--vars-store", fmt.Sprintf("%s/director-variables.yml", varsDir),
+						"--vars-file", fmt.Sprintf("%s/director-deployment-vars.yml", varsDir),
+						"-o", fmt.Sprintf("%s/cpi.yml", deploymentDir),
+						"-o", fmt.Sprintf("%s/jumpbox-user.yml", deploymentDir),
+						"-o", fmt.Sprintf("%s/uaa.yml", deploymentDir),
+						"-o", fmt.Sprintf("%s/credhub.yml", deploymentDir),
+						"-o", fmt.Sprintf("%s/gcp-bosh-director-ephemeral-ip-ops.yml", deploymentDir),
 					})
 
 					_, _, args := cmd.RunArgsForCall(0)
 					Expect(args).To(Equal(expectedArgs))
 
 					expectedArgsWithUserOpsfile := append([]string{
-						"interpolate", fmt.Sprintf("%s/bosh.yml", tempDir),
+						"interpolate", fmt.Sprintf("%s/bosh.yml", deploymentDir),
 						"--var-errs",
-						"--vars-store", fmt.Sprintf("%s/variables.yml", tempDir),
-						"--vars-file", fmt.Sprintf("%s/deployment-vars.yml", tempDir),
-						"-o", fmt.Sprintf("%s/user-ops-file.yml", tempDir),
+						"--vars-store", fmt.Sprintf("%s/director-variables.yml", varsDir),
+						"--vars-file", fmt.Sprintf("%s/director-deployment-vars.yml", varsDir),
+						"-o", fmt.Sprintf("%s/user-ops-file.yml", varsDir),
 					})
 
 					_, _, args = cmd.RunArgsForCall(1)
 					Expect(args).To(Equal(expectedArgsWithUserOpsfile))
 
-					opsFileContents, err := ioutil.ReadFile(fmt.Sprintf("%s/user-ops-file.yml", tempDir))
+					opsFileContents, err := ioutil.ReadFile(fmt.Sprintf("%s/user-ops-file.yml", varsDir))
 					Expect(err).NotTo(HaveOccurred())
 					Expect(string(opsFileContents)).To(Equal(opsfile))
 					Expect(string(writtenManifest)).To(Equal(manifest))
@@ -479,7 +476,9 @@ networks
 				It("returns an error", func() {
 					executor = bosh.NewExecutor(cmd, tempDirFunc, ioutil.ReadFile, json.Unmarshal, json.Marshal, ioutil.WriteFile)
 					_, err := executor.DirectorInterpolate(bosh.InterpolateInput{
-						IAAS: "aws",
+						DeploymentDir: deploymentDir,
+						VarsDir:       varsDir,
+						IAAS:          "aws",
 					})
 					Expect(err).To(MatchError("failed to run command"))
 				})
@@ -493,8 +492,10 @@ networks
 				It("returns an error", func() {
 					executor = bosh.NewExecutor(cmd, tempDirFunc, ioutil.ReadFile, json.Unmarshal, json.Marshal, ioutil.WriteFile)
 					_, err := executor.DirectorInterpolate(bosh.InterpolateInput{
-						IAAS:    "aws",
-						OpsFile: "some-ops-file",
+						DeploymentDir: deploymentDir,
+						VarsDir:       varsDir,
+						IAAS:          "aws",
+						OpsFile:       "some-ops-file",
 					})
 					Expect(err).To(MatchError("failed to run command"))
 				})
@@ -508,7 +509,9 @@ networks
 
 					executor = bosh.NewExecutor(cmd, tempDirFunc, readFileFunc, json.Unmarshal, json.Marshal, ioutil.WriteFile)
 					_, err := executor.DirectorInterpolate(bosh.InterpolateInput{
-						IAAS: "aws",
+						DeploymentDir: deploymentDir,
+						VarsDir:       varsDir,
+						IAAS:          "aws",
 					})
 					Expect(err).To(MatchError("failed to read variables file"))
 				})
@@ -641,9 +644,11 @@ networks
 		Context("failure cases", func() {
 			createEnvDeleteEnvFailureCases(func(executor bosh.Executor) error {
 				createEnvInput := bosh.CreateEnvInput{
-					Manifest:  "some-manifest",
-					Variables: "some-variables",
-					State:     map[string]interface{}{},
+					Deployment: "some-deployment",
+					Directory:  tempDir,
+					Manifest:   "some-manifest",
+					Variables:  "some-variables",
+					State:      map[string]interface{}{},
 				}
 				_, err := executor.CreateEnv(createEnvInput)
 				return err
@@ -792,9 +797,11 @@ networks
 		Context("failure cases", func() {
 			createEnvDeleteEnvFailureCases(func(executor bosh.Executor) error {
 				deleteEnvInput := bosh.DeleteEnvInput{
-					Manifest:  "some-manifest",
-					Variables: "some-variables",
-					State:     map[string]interface{}{},
+					Deployment: "some-deployment",
+					Directory:  tempDir,
+					Manifest:   "some-manifest",
+					Variables:  "some-variables",
+					State:      map[string]interface{}{},
 				}
 				return executor.DeleteEnv(deleteEnvInput)
 			})

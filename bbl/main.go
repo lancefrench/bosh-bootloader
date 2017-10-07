@@ -140,7 +140,7 @@ func main() {
 	boshCommand := bosh.NewCmd(os.Stderr)
 	boshExecutor := bosh.NewExecutor(boshCommand, ioutil.TempDir, ioutil.ReadFile, json.Unmarshal,
 		json.Marshal, ioutil.WriteFile)
-	boshManager := bosh.NewManager(boshExecutor, logger, socks5Proxy)
+	boshManager := bosh.NewManager(boshExecutor, logger, socks5Proxy, stateStore)
 	boshClientProvider := bosh.NewClientProvider(socks5Proxy)
 	sshKeyGetter := bosh.NewSSHKeyGetter()
 	environmentValidator := application.NewEnvironmentValidator(boshClientProvider)

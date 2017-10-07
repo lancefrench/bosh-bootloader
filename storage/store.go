@@ -125,34 +125,31 @@ func GetState(dir string) (State, error) {
 }
 
 func (s Store) GetCloudConfigDir() (string, error) {
-	dir := filepath.Join(s.dir, ".bbl", "cloudconfig")
-	err := os.MkdirAll(dir, os.ModePerm)
-	if err != nil {
-		return "", err
-	}
-	return dir, nil
+	return s.getDir(filepath.Join(".bbl", "cloudconfig"))
 }
 
 func (s Store) GetBblDir() (string, error) {
-	dir := filepath.Join(s.dir, ".bbl")
-	err := os.MkdirAll(dir, os.ModePerm)
-	if err != nil {
-		return "", err
-	}
-	return dir, nil
+	return s.getDir(".bbl")
 }
 
 func (s Store) GetTerraformDir() (string, error) {
-	dir := filepath.Join(s.dir, "terraform")
-	err := os.MkdirAll(dir, os.ModePerm)
-	if err != nil {
-		return "", err
-	}
-	return dir, nil
+	return s.getDir("terraform")
 }
 
 func (s Store) GetVarsDir() (string, error) {
-	dir := filepath.Join(s.dir, "vars")
+	return s.getDir("vars")
+}
+
+func (s Store) GetDirectorDeploymentDir() (string, error) {
+	return s.getDir("bosh-deployment")
+}
+
+func (s Store) GetJumpboxDeploymentDir() (string, error) {
+	return s.getDir("jumpbox-deployment")
+}
+
+func (s Store) getDir(name string) (string, error) {
+	dir := filepath.Join(s.dir, name)
 	err := os.MkdirAll(dir, os.ModePerm)
 	if err != nil {
 		return "", err

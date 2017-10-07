@@ -51,6 +51,22 @@ type StateStore struct {
 			Error     error
 		}
 	}
+
+	GetDirectorDeploymentDirCall struct {
+		CallCount int
+		Returns   struct {
+			Directory string
+			Error     error
+		}
+	}
+
+	GetJumpboxDeploymentDirCall struct {
+		CallCount int
+		Returns   struct {
+			Directory string
+			Error     error
+		}
+	}
 }
 
 type SetCallReceive struct {
@@ -95,4 +111,16 @@ func (s *StateStore) GetVarsDir() (string, error) {
 	s.GetVarsDirCall.CallCount++
 
 	return s.GetVarsDirCall.Returns.Directory, s.GetVarsDirCall.Returns.Error
+}
+
+func (s *StateStore) GetDirectorDeploymentDir() (string, error) {
+	s.GetDirectorDeploymentDirCall.CallCount++
+
+	return s.GetDirectorDeploymentDirCall.Returns.Directory, s.GetDirectorDeploymentDirCall.Returns.Error
+}
+
+func (s *StateStore) GetJumpboxDeploymentDir() (string, error) {
+	s.GetJumpboxDeploymentDirCall.CallCount++
+
+	return s.GetJumpboxDeploymentDirCall.Returns.Directory, s.GetJumpboxDeploymentDirCall.Returns.Error
 }

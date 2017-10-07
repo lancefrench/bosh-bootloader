@@ -118,6 +118,8 @@ type socks5Proxy interface {
 
 type stateStore interface {
 	GetVarsDir() (string, error)
+	GetDirectorDeploymentDir() (string, error)
+	GetJumpboxDeploymentDir() (string, error)
 }
 
 func NewManager(executor executor, logger logger, socks5Proxy socks5Proxy, stateStore stateStore) *Manager {
@@ -141,8 +143,20 @@ func (m *Manager) Version() (string, error) {
 func (m *Manager) CreateJumpbox(state storage.State, terraformOutputs map[string]interface{}) (storage.State, error) {
 	m.logger.Step("creating jumpbox")
 
+	varsDir, err := m.stateStore.GetVarsDir()
+	if err != nil {
+		return storage.State{}, fmt.Errorf("Get vars dir: %s", err)
+	}
+
+	deploymentDir, err := m.stateStore.GetJumpboxDeploymentDir()
+	if err != nil {
+		return storage.State{}, fmt.Errorf("Get deployment dir: %s", err)
+	}
+
 	iaasInputs := InterpolateInput{
-		IAAS: state.IAAS,
+		DeploymentDir: deploymentDir,
+		VarsDir:       varsDir,
+		IAAS:          state.IAAS,
 		JumpboxDeploymentVars: m.GetJumpboxDeploymentVars(state, terraformOutputs),
 		Variables:             state.Jumpbox.Variables,
 	}
@@ -155,11 +169,6 @@ func (m *Manager) CreateJumpbox(state storage.State, terraformOutputs map[string
 	variables, err := yaml.Marshal(interpolateOutputs.Variables)
 	if err != nil {
 		return storage.State{}, fmt.Errorf("Marshal yaml: %s", err)
-	}
-
-	varsDir, err := m.stateStore.GetVarsDir()
-	if err != nil {
-		return storage.State{}, fmt.Errorf("Get vars dir: %s", err)
 	}
 
 	osUnsetenv("BOSH_ALL_PROXY")
@@ -211,8 +220,20 @@ func (m *Manager) CreateJumpbox(state storage.State, terraformOutputs map[string
 func (m *Manager) CreateDirector(state storage.State, terraformOutputs map[string]interface{}) (storage.State, error) {
 	m.logger.Step("creating bosh director")
 
+	varsDir, err := m.stateStore.GetVarsDir()
+	if err != nil {
+		return storage.State{}, fmt.Errorf("Get vars dir: %s", err)
+	}
+
+	directorDeploymentDir, err := m.stateStore.GetDirectorDeploymentDir()
+	if err != nil {
+		return storage.State{}, fmt.Errorf("Get deployment dir: %s", err)
+	}
+
 	iaasInputs := InterpolateInput{
-		IAAS: state.IAAS,
+		DeploymentDir: directorDeploymentDir,
+		VarsDir:       varsDir,
+		IAAS:          state.IAAS,
 		DirectorDeploymentVars: m.GetDirectorDeploymentVars(state, terraformOutputs),
 		Variables:              state.BOSH.Variables,
 		OpsFile:                state.BOSH.UserOpsFile,
@@ -221,11 +242,6 @@ func (m *Manager) CreateDirector(state storage.State, terraformOutputs map[strin
 	interpolateOutputs, err := m.executor.DirectorInterpolate(iaasInputs)
 	if err != nil {
 		return storage.State{}, err
-	}
-
-	varsDir, err := m.stateStore.GetVarsDir()
-	if err != nil {
-		return storage.State{}, fmt.Errorf("Get vars dir: %s", err)
 	}
 
 	createEnvOutputs, err := m.executor.CreateEnv(CreateEnvInput{
@@ -273,11 +289,23 @@ func (m *Manager) CreateDirector(state storage.State, terraformOutputs map[strin
 }
 
 func (m *Manager) DeleteDirector(state storage.State, terraformOutputs map[string]interface{}) error {
+	varsDir, err := m.stateStore.GetVarsDir()
+	if err != nil {
+		return fmt.Errorf("Get vars dir: %s", err)
+	}
+
+	deploymentDir, err := m.stateStore.GetDirectorDeploymentDir()
+	if err != nil {
+		return fmt.Errorf("Get deployment dir: %s", err)
+	}
+
 	iaasInputs := InterpolateInput{
-		IAAS:      state.IAAS,
-		BOSHState: state.BOSH.State,
-		Variables: state.BOSH.Variables,
-		OpsFile:   state.BOSH.UserOpsFile,
+		DeploymentDir: deploymentDir,
+		VarsDir:       varsDir,
+		IAAS:          state.IAAS,
+		BOSHState:     state.BOSH.State,
+		Variables:     state.BOSH.Variables,
+		OpsFile:       state.BOSH.UserOpsFile,
 	}
 
 	jumpboxPrivateKey, err := getJumpboxPrivateKey(state.Jumpbox.Variables)
@@ -297,11 +325,6 @@ func (m *Manager) DeleteDirector(state storage.State, terraformOutputs map[strin
 	interpolateOutputs, err := m.executor.DirectorInterpolate(iaasInputs)
 	if err != nil {
 		return err
-	}
-
-	varsDir, err := m.stateStore.GetVarsDir()
-	if err != nil {
-		return fmt.Errorf("Get vars dir: %s", err)
 	}
 
 	err = m.executor.DeleteEnv(DeleteEnvInput{
@@ -326,7 +349,19 @@ func (m *Manager) DeleteDirector(state storage.State, terraformOutputs map[strin
 func (m *Manager) DeleteJumpbox(state storage.State, terraformOutputs map[string]interface{}) error {
 	m.logger.Step("destroying jumpbox")
 
+	varsDir, err := m.stateStore.GetVarsDir()
+	if err != nil {
+		return fmt.Errorf("Get vars dir: %s", err)
+	}
+
+	deploymentDir, err := m.stateStore.GetJumpboxDeploymentDir()
+	if err != nil {
+		return fmt.Errorf("Get deployment dir: %s", err)
+	}
+
 	iaasInputs := InterpolateInput{
+		DeploymentDir:         deploymentDir,
+		VarsDir:               varsDir,
 		IAAS:                  state.IAAS,
 		Variables:             state.Jumpbox.Variables,
 		JumpboxDeploymentVars: m.GetJumpboxDeploymentVars(state, terraformOutputs),
@@ -338,9 +373,11 @@ func (m *Manager) DeleteJumpbox(state storage.State, terraformOutputs map[string
 	}
 
 	err = m.executor.DeleteEnv(DeleteEnvInput{
-		Manifest:  interpolateOutputs.Manifest,
-		State:     state.Jumpbox.State,
-		Variables: interpolateOutputs.Variables,
+		Deployment: "jumpbox",
+		Directory:  varsDir,
+		Manifest:   interpolateOutputs.Manifest,
+		State:      state.Jumpbox.State,
+		Variables:  interpolateOutputs.Variables,
 	})
 	switch err.(type) {
 	case DeleteEnvError:
