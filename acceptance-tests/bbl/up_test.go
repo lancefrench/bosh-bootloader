@@ -65,29 +65,33 @@ var _ = FDescribe("up", func() {
 				"cloud-config.yml",
 				"ops.yml",
 			})
-			checkExists(filepath.Join(stateDir, ".bbl"), []string{"previous-user-ops-file.yml"})
+			checkExists(filepath.Join(stateDir, ".bbl"), []string{
+				"previous-user-ops-file.yml",
+			})
 			checkExists(filepath.Join(stateDir, "bosh-deployment"), []string{
 				"bosh.yml",
 				"cpi.yml",
 				"credhub.yml",
 				"jumpbox-user.yml",
 				"uaa.yml",
-				"user-ops-file.yml",
 				// and some iaas-specific files tested in unit tests...
 			})
 			checkExists(filepath.Join(stateDir, "jumpbox-deployment"), []string{
 				"cpi.yml",
 				"jumpbox.yml",
 			})
-			checkExists(filepath.Join(stateDir, "terraform"), []string{"template.tf"})
+			checkExists(filepath.Join(stateDir, "terraform"), []string{
+				"template.tf",
+			})
 			checkExists(filepath.Join(stateDir, "vars"), []string{
-				"terraform-credentials.json",
-				"bosh-deployment-state.json",
-				"bosh-deployment-variables.yml",
-				"jumpbox-deployment-state.json",
-				"jumpbox-deployment-variables.yml",
-				"user-ops-file.yml",
+				"director-manifest.yml",
+				"director-state.json",
+				"director-variables.yml",
+				"jumpbox-manifest.yml",
+				"jumpbox-state.json",
+				"jumpbox-variables.yml",
 				"terraform.tfstate",
+				"user-ops-file.yml",
 			})
 		})
 
